@@ -1,4 +1,6 @@
 cubiomes-viewer.pro.user
 build
 src/libwinsane/*.o
+tests/out
+shots
 **/.directory

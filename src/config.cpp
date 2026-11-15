@@ -55,7 +55,8 @@ void ExtGenConfig::save(QSettings& settings)
 
 bool WorldInfo::equals(const WorldInfo& wi) const
 {
-    return mc == wi.mc && large == wi.large && seed == wi.seed && y == wi.y;
+    return mc == wi.mc && large == wi.large && seed == wi.seed && y == wi.y
+        && bedrock == wi.bedrock;
 }
 
 void WorldInfo::reset()
@@ -64,6 +65,7 @@ void WorldInfo::reset()
     large = false;
     seed = 0;
     y = 255;
+    bedrock = BE_UNDEF;
 }
 
 void WorldInfo::load(QSettings& settings)
@@ -72,6 +74,7 @@ void WorldInfo::load(QSettings& settings)
     large = settings.value("map/large", large).toBool();
     seed = settings.value("map/seed", (qlonglong)seed).toLongLong();
     y = settings.value("map/y", y).toInt();
+    bedrock = settings.value("map/bedrock", bedrock).toInt();
 }
 
 void WorldInfo::save(QSettings& settings)
@@ -80,6 +83,7 @@ void WorldInfo::save(QSettings& settings)
     settings.setValue("map/large", large);
     settings.setValue("map/seed", (qlonglong)seed);
     settings.setValue("map/y", y);
+    settings.setValue("map/bedrock", bedrock);
 }
 
 bool WorldInfo::read(const QString& line)

@@ -107,6 +107,7 @@ SOURCES += \
         $$LUAPATH/lvm.c \
         $$LUAPATH/lzio.c \
         src/aboutdialog.cpp \
+        src/bedrock.c \
         src/biomecolordialog.cpp \
         src/conditiondialog.cpp \
         src/config.cpp \
@@ -124,6 +125,8 @@ SOURCES += \
         src/layerdialog.cpp \
         src/mapview.cpp \
         src/rangedialog.cpp \
+        src/route.cpp \
+        src/routedialog.cpp \
         src/scripts.cpp \
         src/search.cpp \
         src/searchthread.cpp \
@@ -172,6 +175,7 @@ HEADERS += \
         $$LUAPATH/lvm.h \
         $$LUAPATH/lzio.h \
         src/aboutdialog.h \
+        src/bedrock.h \
         src/biomecolordialog.h \
         src/conditiondialog.h \
         src/config.h \
@@ -190,6 +194,8 @@ HEADERS += \
         src/mapview.h \
         src/qzipwriter.h \
         src/rangedialog.h \
+        src/route.h \
+        src/routedialog.h \
         src/scripts.h \
         src/search.h \
         src/searchthread.h \
@@ -218,6 +224,7 @@ FORMS += \
         src/layerdialog.ui \
         src/mainwindow.ui \
         src/rangedialog.ui \
+        src/routedialog.ui \
         src/tabbiomes.ui \
         src/tablocations.ui \
         src/tabstructures.ui

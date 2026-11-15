@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>RouteDialog</class>
+ <widget class="QDialog" name="RouteDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>420</width>
+    <height>480</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Route</string>
+  </property>
+  <property name="windowIcon">
+   <iconset resource="../rc/icons.qrc">
+    <normaloff>:/icons/logo.png</normaloff>:/icons/logo.png</iconset>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QGroupBox" name="groupEndpoints">
+     <property name="title">
+      <string>Endpoints</string>
+     </property>
+     <layout class="QGridLayout" name="gridEndpoints">
+      <item row="0" column="0">
+       <widget class="QLabel" name="labelStart">
+        <property name="text">
+         <string>Start:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLabel" name="labelX1">
+        <property name="text">
+         <string>X</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="2">
+       <widget class="CoordEdit" name="lineStartX"/>
+      </item>
+      <item row="0" column="3">
+       <widget class="QLabel" name="labelZ1">
+        <property name="text">
+         <string>Z</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="4">
+       <widget class="CoordEdit" name="lineStartZ"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="labelEnd">
+        <property name="text">
+         <string>Destination:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLabel" name="labelX2">
+        <property name="text">
+         <string>X</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="2">
+       <widget class="CoordEdit" name="lineEndX"/>
+      </item>
+      <item row="1" column="3">
+       <widget class="QLabel" name="labelZ2">
+        <property name="text">
+         <string>Z</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="4">
+       <widget class="CoordEdit" name="lineEndZ"/>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupTravel">
+     <property name="title">
+      <string>Travel</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalTravel">
+      <item>
+       <widget class="QCheckBox" name="checkLand">
+        <property name="toolTip">
+         <string>Allow travelling over land</string>
+        </property>
+        <property name="text">
+         <string>Land route</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="checkSea">
+        <property name="toolTip">
+         <string>Allow travelling over water (boat or swimming)</string>
+        </property>
+        <property name="text">
+         <string>Sea route</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalOptimize">
+        <item>
+         <widget class="QLabel" name="labelOptimize">
+          <property name="text">
+           <string>Optimize for:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="StyledComboBox" name="comboOptimize"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="checkAvoidHazards">
+        <property name="toolTip">
+         <string>Steer around hazardous terrain</string>
+        </property>
+        <property name="text">
+         <string>Avoid hazards</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupResult">
+     <property name="title">
+      <string>Result</string>
+     </property>
+     <layout class="QGridLayout" name="gridResult">
+      <item row="0" column="0">
+       <widget class="QLabel" name="labelDistTitle">
+        <property name="text">
+         <string>Distance:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLabel" name="labelDistance">
+        <property name="text">
+         <string>-</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="labelTimeTitle">
+        <property name="text">
+         <string>Travel time:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLabel" name="labelTime">
+        <property name="text">
+         <string>-</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="labelModeTitle">
+        <property name="text">
+         <string>Terrain:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLabel" name="labelMode">
+        <property name="text">
+         <string>-</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPlainTextEdit" name="textLog">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="maximumBlockCount">
+      <number>2000</number>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Close|QDialogButtonBox::Apply|QDialogButtonBox::Reset</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>CoordEdit</class>
+   <extends>QLineEdit</extends>
+   <header>src/widgets.h</header>
+  </customwidget>
+  <customwidget>
+   <class>StyledComboBox</class>
+   <extends>QComboBox</extends>
+   <header>src/widgets.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources>
+  <include location="../rc/icons.qrc"/>
+ </resources>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>RouteDialog</receiver>
+   <slot>reject()</slot>
+  </connection>
+ </connections>
+</ui>

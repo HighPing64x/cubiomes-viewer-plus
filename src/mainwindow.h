@@ -20,6 +20,7 @@
 #include <atomic>
 
 #include "mapview.h"
+#include "route.h"
 #include "formconditions.h"
 #include "formgen48.h"
 #include "formsearchcontrol.h"
@@ -89,6 +90,7 @@ private slots:
     void on_actionQuit_triggered();
     void on_actionPreferences_triggered();
     void on_actionGoto_triggered();
+    void on_actionRoute_triggered();
     void on_actionOpenShadow_triggered();
     void on_actionToolbarConfig_triggered();
     void on_actionBiomeColors_triggered();
@@ -138,6 +140,7 @@ public:
     LayerOpt lopt;
     Config config;
     MapConfig mconfig;
+    RouteConfig routeconfig;
     QString sessionpath;
     QString prevdir;
     QTimer autosaveTimer;

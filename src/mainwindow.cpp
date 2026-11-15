@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 
 #include "aboutdialog.h"
+#include "bedrock.h"
 #include "biomecolordialog.h"
 #include "configdialog.h"
 #include "exportdialog.h"
@@ -10,6 +11,7 @@
 #include "maptoolsdialog.h"
 #include "message.h"
 #include "presetdialog.h"
+#include "routedialog.h"
 #include "tabbiomes.h"
 #include "tablocations.h"
 #include "tabstructures.h"
@@ -360,12 +362,23 @@ bool MainWindow::getSeed(WorldInfo *wi, bool applyrand)
 {
     bool ok = true;
     const std::string& mcs = ui->comboBoxMC->currentText().toStdString();
-    wi->mc = str2mc(mcs.c_str());
+    wi->bedrock = str2be(mcs.c_str());
+    if (wi->bedrock != BE_UNDEF)
+    {
+        // Bedrock versions are mapped onto the Java version with the same
+        // biome generation, so that the biome layer can be shared.
+        wi->mc = be2javaMC(wi->bedrock);
+    }
+    else
+    {
+        wi->mc = str2mc(mcs.c_str());
+    }
     if (wi->mc == MC_UNDEF)
     {
         if (applyrand)
             qDebug() << "Unknown MC version: " << mcs.c_str();
         wi->mc = MC_DEFAULT;
+        wi->bedrock = BE_UNDEF;
         ok = false;
     }
 
@@ -433,7 +446,7 @@ bool MainWindow::setSeed(WorldInfo wi, int dim)
         ui->comboY->addItem(QString::number(wi.y));
     ui->comboY->setCurrentIndex(i);
 
-    ui->comboBoxMC->setCurrentText(mc2str(wi.mc));
+    ui->comboBoxMC->setCurrentText(wi.isBedrock() ? be2str(wi.bedrock) : mc2str(wi.mc));
     ui->seedEdit->setText(QString::asprintf("%" PRId64, (int64_t)wi.seed));
     getMapView()->setSeed(wi, dim, lopt);
 
@@ -473,6 +486,10 @@ void MainWindow::saveSettings()
     settings.setValue("toolbar/area", toolBarArea(ui->toolBar));
 
     config.save(settings);
+
+    mconfig.save(settings);
+
+    routeconfig.save(settings);
 
     g_extgen.save(settings);
 
@@ -547,6 +564,7 @@ void MainWindow::loadSettings()
     }
 
     g_extgen.load(settings);
+    routeconfig.load(settings);
     setMCList(g_extgen.experimentalVers);
 
     WorldInfo wi;
@@ -701,7 +719,12 @@ void MainWindow::setMCList(bool experimental)
         }
         mclist.append(mc2str(mc));
     }
-    const QString s = mc2str(wi.mc);
+    // Bedrock worlds share the biome generation of their Java counterparts,
+    // but place structures differently, so they are listed separately.
+    for (int be = BE_NEWEST; be >= BE_1_18; be--)
+        mclist.append(be2str(be));
+
+    const QString s = wi.isBedrock() ? be2str(wi.bedrock) : mc2str(wi.mc);
     ui->comboBoxMC->setEnabled(false);
     ui->comboBoxMC->clear();
     ui->comboBoxMC->addItems(mclist);
@@ -874,6 +897,13 @@ void MainWindow::on_actionPreferences_triggered()
 void MainWindow::on_actionGoto_triggered()
 {
     getMapView()->onGoto();
+}
+
+void MainWindow::on_actionRoute_triggered()
+{
+    RouteDialog *dialog = new RouteDialog(this, &routeconfig);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
 }
 
 void MainWindow::on_actionOpenShadow_triggered()

@@ -1,5 +1,6 @@
 #include "world.h"
 
+#include "bedrock.h"
 #include "util.h"
 
 #include <QPainterPath>
@@ -161,6 +162,9 @@ Quad::~Quad()
 void getStructs(std::vector<VarPos> *out, const StructureConfig sconf,
         WorldInfo wi, int dim, int x0, int z0, int x1, int z1, bool nogen)
 {
+    // The first structure of any region is placed with the Bedrock algorithm.
+    bool bedrock = wi.isBedrock();
+
     int si0 = floordiv(x0, sconf.regionSize * 16);
     int sj0 = floordiv(z0, sconf.regionSize * 16);
     int si1 = floordiv((x1-1), sconf.regionSize * 16);
@@ -180,7 +184,9 @@ void getStructs(std::vector<VarPos> *out, const StructureConfig sconf,
         for (int j = sj0; j <= sj1; j++)
         {
             Pos p;
-            int ok = getStructurePos(sconf.structType, wi.mc, wi.seed, i, j, &p);
+            int ok = bedrock
+                ? getBedrockStructurePos(sconf.structType, wi.mc, wi.seed, i, j, &p)
+                : getStructurePos(sconf.structType, wi.mc, wi.seed, i, j, &p);
             if (!ok)
                 continue;
 
@@ -464,7 +470,10 @@ void Quad::run()
             int z0 = tj*blocks, z1 = (tj+1)*blocks;
             std::vector<VarPos>* st = new std::vector<VarPos>();
             StructureConfig sconf;
-            if (getStructureConfig_override(structureType, wi.mc, &sconf))
+            int ok = wi.isBedrock()
+                ? getBedrockStructureConfig(structureType, wi.mc, &sconf)
+                : getStructureConfig_override(structureType, wi.mc, &sconf);
+            if (ok)
                 getStructs(st, sconf, wi, dim, x0, z0, x1, z1, lopt.mode == LOPT_STRUCTS);
             spos = st;
         }
@@ -1321,8 +1330,56 @@ void QWorld::draw(QPainter& painter, int vw, int vh, qreal focusx, qreal focusz,
         }
     }
 
+    // Route segments are drawn as a connected polyline so that the planned
+    // path stands out from the structure bounding boxes.
+    {
+        std::vector<const Shape*> lines;
+        for (const Shape& s : shapes)
+            if (s.type == Shape::LINE && (s.dim == DIM_UNDEF || s.dim == dim))
+                lines.push_back(&s);
+
+        if (!lines.empty())
+        {
+            QPainterPath path;
+            for (size_t i = 0; i < lines.size(); i++)
+            {
+                const Shape *s = lines[i];
+                qreal x1 = vw/2.0 + (s->p1.x - focusx) * blocks2pix;
+                qreal y1 = vh/2.0 + (s->p1.z - focusz) * blocks2pix;
+                qreal x2 = vw/2.0 + (s->p2.x - focusx) * blocks2pix;
+                qreal y2 = vh/2.0 + (s->p2.z - focusz) * blocks2pix;
+                if (i == 0)
+                    path.moveTo(x1, y1);
+                path.lineTo(x2, y2);
+            }
+
+            QPen pen(QColor(32, 96, 224, 220), 2.4, Qt::SolidLine,
+                Qt::RoundCap, Qt::RoundJoin);
+            painter.setPen(pen);
+            painter.setBrush(Qt::NoBrush);
+            painter.drawPath(path);
+
+            // Mark the endpoints of the route.
+            const Shape *first = lines.front();
+            const Shape *last = lines.back();
+            painter.setBrush(QColor(32, 96, 224, 220));
+            qreal rx = vw/2.0 + (first->p1.x - focusx) * blocks2pix;
+            qreal rz = vh/2.0 + (first->p1.z - focusz) * blocks2pix;
+            painter.drawEllipse(QPointF(rx, rz), 4, 4);
+            rx = vw/2.0 + (last->p2.x - focusx) * blocks2pix;
+            rz = vh/2.0 + (last->p2.z - focusz) * blocks2pix;
+            painter.setBrush(Qt::NoBrush);
+            painter.drawEllipse(QPointF(rx, rz), 5, 5);
+
+            painter.setPen(QPen(QColor(192, 0, 0, 160), 1));
+            painter.setBrush(Qt::NoBrush);
+        }
+    }
+
     for (Shape& s : shapes)
     {
+        if (s.type == Shape::LINE)
+            continue; // already drawn above
         if (s.dim != DIM_UNDEF && s.dim != dim)
             continue;
         qreal x1 = vw/2.0 + (s.p1.x - focusx) * blocks2pix;
@@ -1336,8 +1393,7 @@ void QWorld::draw(QPainter& painter, int vw, int vh, qreal focusx, qreal focusz,
             painter.drawRect(QRectF(x1, y1, x2-x1, y2-y1));
             break;
         case Shape::LINE:
-            painter.drawLine(QLineF(x1, y1, x2, y2));
-            break;
+            break; // drawn as a polyline above
         case Shape::CIRCLE:
             painter.drawEllipse(QPointF(x1, y1), r, r);
             break;

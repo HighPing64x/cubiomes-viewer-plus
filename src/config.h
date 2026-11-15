@@ -2,6 +2,7 @@
 #define CONFIG_H
 
 #include "cubiomes/finders.h"
+#include "bedrock.h"
 
 #include <QSettings>
 #include <QString>
@@ -49,10 +50,12 @@ struct WorldInfo
     bool large;
     uint64_t seed;
     int y;
+    int bedrock; // BE_UNDEF for Java worlds
 
     WorldInfo() { reset(); }
 
     bool equals(const WorldInfo& wi) const;
+    bool isBedrock() const { return bedrock != BE_UNDEF; }
 
     void reset();
     void load(QSettings& settings);
