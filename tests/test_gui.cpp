@@ -20,6 +20,10 @@
 #include <QComboBox>
 #include <QCheckBox>
 #include <QDebug>
+#include <QFile>
+#include <QLabel>
+#include <QPlainTextEdit>
+#include <QTextStream>
 
 extern ExtGenConfig g_extgen;
 
@@ -101,6 +105,28 @@ static void stage()
 
     case 5:
         snap("04_route_result");
+        // Also dump the dialog text so the output can be checked without a
+        // screenshot.
+        if (g_dlg)
+        {
+            if (QPlainTextEdit *log = g_dlg->findChild<QPlainTextEdit*>("textLog"))
+            {
+                QFile f("shots/route_dialog_log.txt");
+                if (f.open(QIODevice::WriteOnly | QIODevice::Text))
+                {
+                    QTextStream ts(&f);
+                    ts << log->toPlainText() << "\n";
+                }
+            }
+            QFile f("shots/route_dialog_labels.txt");
+            if (f.open(QIODevice::WriteOnly | QIODevice::Text))
+            {
+                QTextStream ts(&f);
+                for (const char *name : {"labelDistance", "labelTime", "labelMode"})
+                    if (QLabel *l = g_dlg->findChild<QLabel*>(name))
+                        ts << name << ": " << l->text() << "\n";
+            }
+        }
         g_mw->mapGoto(2000, 1250, 6);
         break;
 

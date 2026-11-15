@@ -92,6 +92,24 @@ struct RouteResult
 void computeRoute(RouteResult *result, const Generator *g,
         const RouteConfig& config, const std::atomic_bool *abort = nullptr);
 
+// A homogeneous section of a route, i.e. a run of consecutive cells that all
+// have the same terrain type. Used to present the route as a short list of
+// legs instead of one entry per waypoint.
+struct RouteLeg
+{
+    RouteLeg() : water(),length(),from(),to() {}
+    bool water;
+    double length; // in blocks
+    Pos from, to;
+};
+
+/*
+ * Splits the computed route into legs. Every segment is attributed to the cell
+ * it leaves, so the legs partition the path exactly and their lengths add up to
+ * RouteResult::distance.
+ */
+void routeLegs(const RouteResult& result, std::vector<RouteLeg> *legs);
+
 // speed in blocks per second for a given terrain and travel mode
 double routeCellSpeed(int biome, bool water);
 

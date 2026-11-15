@@ -50,6 +50,11 @@ The version combo box lists the Bedrock versions after the Java ones
 through `str2be()`, and `WorldInfo::equals()` compares the new field, which
 makes the map cache invalidate correctly when the edition changes.
 
+Session files store the edition as an extra `#Bedrock:` line next to `#MC:` and
+`#Large:`, so reopening a saved session keeps the Bedrock selection. Session
+files written by older versions have no such line and simply load as Java
+worlds; unknown edition values fall back to Java as well.
+
 Version mapping (`src/bedrock.c`):
 
 | Bedrock | Java equivalent |
@@ -149,7 +154,7 @@ requested coordinates), the total distance in blocks, the integrated travel
 time in seconds, and the land/water cell counts.
 
 The `RouteDialog` shows the summary and collapses consecutive cells of the same
-terrain into readable legs:
+terrain into readable legs (`routeLegs()`):
 
 ```
 Route from (0, 0) to (4000, 2500)
@@ -158,7 +163,20 @@ on land    4739 blocks   (0, 0) -> (3658, 2193)
 by water    470 blocks   (3669, 2205) -> (4000, 2500)
 ```
 
-### 2.5 Map overlay
+Every segment is attributed to the cell it leaves, so the legs partition the
+path exactly: consecutive legs are contiguous and their lengths add up to
+`RouteResult::distance` without counting any segment twice.
+
+### 2.5 Sampling grid
+
+The biome map is read at the native 1:4 scale, one strided sample per cell. The
+cell size is therefore snapped to a multiple of four blocks; otherwise the
+stride and the cell spacing drift apart and the samples slowly move away from
+the cell centres (for a 60 km wide grid the error would reach several hundred
+blocks). Routes shorter than that use one query per cell instead, which is
+cheap because the grid is small.
+
+### 2.6 Map overlay
 
 The route is pushed to the map through the existing `Shape` mechanism. Instead
 of emitting independent segments, `QWorld::draw()` collects all `Shape::LINE`
@@ -190,24 +208,22 @@ run_tests.bat
 
 | Test                 | What it checks                                                              |
 |----------------------|-----------------------------------------------------------------------------|
-| `test_bedrock.c`     | 882 structure positions against an independent reimplementation of the algorithm |
+| `test_bedrock.c`     | 882 structure positions + 39366 mineshaft regions against an independent reimplementation |
 | `test_integration.c` | edition switch, biome parity, region containment, unsupported structures     |
 | `test_dispatch.cpp`  | the dispatcher used by the map really picks the Bedrock path per edition     |
-| `test_route.cpp`     | route validity, endpoint preservation, land/sea restriction, fastest vs shortest |
-
-`test_gui.cpp` is an optional smoke test harness that needs the compiled
-objects of the application; it switches to a Bedrock version, opens the route
-dialog and writes screenshots to `shots/`.
+| `test_route.cpp`     | route validity, endpoint preservation, land/sea restriction, fastest vs shortest, leg partitioning |
+| `test_session.cpp`   | session files keep the edition; old and invalid values fall back to Java     |
 
 Verified results:
 
-* Bedrock placement: **882 / 882** positions match the independent
-  reimplementation of the documented algorithm.
+* Bedrock placement: **882 / 882** positions match the reference implementation.
+* Mineshafts over 39366 regions: **0** mismatches, 44 found (the scan is large
+  enough for the rare 0.4% chance to be exercised).
 * Biome parity between `Bedrock 1.21` and `Java 1.21.3`: **0 / 2601** mismatches.
 * Village placement over 289 regions: **289 differ, 0 identical** — the edition
   switch genuinely changes the structure layout.
 * Route planner: mixed, land-only, sea-only, degenerate and long-distance cases
-  all behave as specified.
+  all behave as specified; the legs sum to the reported distance.
 
 ---
 

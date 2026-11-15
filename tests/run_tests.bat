@@ -44,6 +44,15 @@ if errorlevel 1 goto fail
 out\test_route.exe || set FAILED=1
 
 echo.
+echo === Session file keeps the edition ===
+g++ -O2 -fwrapv -DSTRUCT_CONFIG_OVERRIDE=1 -std=gnu++11 -finput-charset=UTF-8 -fexec-charset=UTF-8 ^
+    -I.. -I..\src -I"%QTDIR%\include" -I"%QTDIR%\include\QtCore" -I"%QTDIR%\include\QtGui" -I"%QTDIR%\include\QtWidgets" ^
+    -o out\test_session.exe test_session.cpp ..\src\config.cpp ..\src\bedrock.c ..\cubiomes\libcubiomes.a ^
+    -L"%QTDIR%\lib" -lQt5Core -lQt5Gui -lQt5Widgets -lm
+if errorlevel 1 goto fail
+out\test_session.exe || set FAILED=1
+
+echo.
 if "%FAILED%"=="1" (
     echo SOME TESTS FAILED
     exit /b 1

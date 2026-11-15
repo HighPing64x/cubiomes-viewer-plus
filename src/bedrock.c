@@ -167,7 +167,14 @@ static void bedrockChunkGenerateRnd(uint64_t worldseed, int chunkX, int chunkZ,
     r1 = mtNextIntUnbound(mt);
     r2 = mtNextIntUnbound(mt);
 
-    mixedSeed = (r1 * (uint32_t)chunkX) ^ (r2 * (uint32_t)chunkZ) ^ worldseed;
+    // The chunk coordinates are converted to uint64_t, so negative values wrap
+    // (two's complement) before the multiplication, mirroring the algorithm.
+    // Only the low 32 bits of the mixed seed are consumed by mtSetSeed(), so
+    // this is numerically equivalent to a uint32_t conversion, but keeping the
+    // full width avoids relying on that coincidence.
+    mixedSeed = (r1 * (uint64_t)(int64_t)chunkX)
+              ^ (r2 * (uint64_t)(int64_t)chunkZ)
+              ^ worldseed;
     mtSetSeed(mt, mixedSeed, n);
 }
 

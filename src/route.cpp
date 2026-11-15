@@ -125,6 +125,47 @@ QString routeBiomeDesc(int biome)
     return QCoreApplication::translate("Route", "land");
 }
 
+void routeLegs(const RouteResult& result, std::vector<RouteLeg> *legs)
+{
+    legs->clear();
+    const size_t n = result.path.size();
+    if (!result.valid || n == 0)
+        return;
+
+    size_t i = 0;
+    while (i < n)
+    {
+        const bool water = result.path[i].water;
+
+        // Extend the leg while the terrain type stays the same.
+        size_t j = i;
+        while (j + 1 < n && result.path[j+1].water == water)
+            j++;
+
+        // Segments are attributed to the cell they leave, so each segment is
+        // counted exactly once across all legs. The leg therefore reaches from
+        // the first cell it covers to the end of its last segment, which also
+        // keeps consecutive legs contiguous.
+        double len = 0;
+        for (size_t k = i; k <= j && k + 1 < n; k++)
+        {
+            double dx = result.path[k+1].p.x - result.path[k].p.x;
+            double dz = result.path[k+1].p.z - result.path[k].p.z;
+            len += sqrt(dx*dx + dz*dz);
+        }
+        const size_t endidx = (j + 1 < n) ? j + 1 : j;
+
+        RouteLeg leg;
+        leg.water = water;
+        leg.length = len;
+        leg.from = result.path[i].p;
+        leg.to = result.path[endidx].p;
+        legs->push_back(leg);
+
+        i = j + 1;
+    }
+}
+
 
 RouteConfig::RouteConfig()
 {
@@ -249,61 +290,92 @@ void computeRoute(RouteResult *result, const Generator *g,
     if (cell < 1.0)
         cell = 1.0;
 
+    // The biome map is sampled at the native 1:4 scale. For the fast row based
+    // path the cell stride must divide cleanly into that scale, otherwise the
+    // samples drift away from the cell centres over long distances. The cell
+    // size is therefore snapped down to a multiple of four blocks, and very
+    // short routes fall back to one query per cell (few enough to be cheap).
+    bool percell = cell < 4.0;
+    int step = 1;
+    if (!percell)
+    {
+        step = (int)floor(cell / 4.0);
+        // Bound the number of generated samples for very large distances by
+        // coarsening the grid until the row buffer is reasonable.
+        for (;;)
+        {
+            cell = (double)step * 4.0;
+            int64_t w = (int64_t)ceil(spanx / cell) + 1;
+            int64_t h = (int64_t)ceil(spanz / cell) + 1;
+            if (w * h * step <= (INT64_C(1) << 24) || step >= 4096)
+                break;
+            step++;
+        }
+    }
+
     int gw = (int)ceil(spanx / cell) + 1;
     int gh = (int)ceil(spanz / cell) + 1;
     if (gw < 2) gw = 2;
     if (gh < 2) gh = 2;
 
     // Guard against absurd allocations if the endpoints are very far apart.
-    if ((int64_t)gw * gh > (INT64_C(1) << 26))
+    if ((int64_t)gw * gh > (INT64_C(1) << 22))
     {
         result->error = QCoreApplication::translate("Route",
             "The distance is too large for the selected resolution.");
         return;
     }
 
-    // Sample the biome map into the grid. Instead of one generator call per
-    // cell, whole rows are generated at the native 1:4 biome scale and then
-    // strided, which is considerably faster for large areas.
+    // Sample the biome map into the grid. For large areas whole rows are
+    // generated at once and then strided, which is considerably faster than
+    // one generator call per cell.
     std::vector<int> biomes((size_t)gw * gh, none);
     {
-        // Grid spacing in biome (1:4) coordinates.
-        int step = (int)floor(cell / 4.0);
-        if (step < 1)
-            step = 1;
+        // Sea level is sampled for both editions; the vertical position only
+        // selects which cave/surface biome is returned and does not affect the
+        // horizontal layout that the planner uses.
+        const int sampleY = 63;
 
-        // Bound the amount of generated samples for very large distances.
-        int64_t samples = (int64_t)gw * step * gh;
-        while (samples > (INT64_C(1) << 24) && step < 4096)
+        if (percell)
         {
-            step++;
-            samples = (int64_t)gw * step * gh;
+            for (int j = 0; j < gh; j++)
+            {
+                if (abort && *abort)
+                    return;
+                int bz = (z0 + (int)((j + 0.5) * cell)) >> 2;
+                for (int i = 0; i < gw; i++)
+                {
+                    int bx = (x0 + (int)((i + 0.5) * cell)) >> 2;
+                    biomes[(size_t)j * gw + i] = getBiomeAt(g, 4, bx, sampleY, bz);
+                }
+            }
         }
-
-        Range r;
-        r.scale = 4;
-        r.sy = 1;
-        r.y = (g->mc >= MC_1_18) ? 63 : 63;
-
-        std::vector<int> rowbuf((size_t)gw * step, none);
-        for (int j = 0; j < gh; j++)
+        else
         {
-            if (abort && *abort)
-                return;
-
-            // Rows advance along z; the horizontal position uses z0, while the
-            // row itself starts at x0 and steps along x.
-            int bz = (z0 + (int)((j + 0.5) * cell)) >> 2;
+            Range r;
+            r.scale = 4;
+            r.sy = 1;
+            r.y = sampleY;
             r.x = (x0 >> 2);
-            r.z = bz;
             r.sx = gw * step;
             r.sz = 1;
+            std::vector<int> rowbuf((size_t)gw * step, none);
 
-            if (genBiomes(g, &rowbuf[0], r) != 0)
-                continue;
+            for (int j = 0; j < gh; j++)
+            {
+                if (abort && *abort)
+                    return;
 
-            for (int i = 0; i < gw; i++)
-                biomes[(size_t)j * gw + i] = rowbuf[(size_t)i * step];
+                // Rows advance along z; because the cell size is a multiple of
+                // four, the strided samples land exactly on the cell centres.
+                r.z = (z0 + (int)((j + 0.5) * cell)) >> 2;
+
+                if (genBiomes(g, &rowbuf[0], r) != 0)
+                    continue;
+
+                for (int i = 0; i < gw; i++)
+                    biomes[(size_t)j * gw + i] = rowbuf[(size_t)i * step];
+            }
         }
     }
 

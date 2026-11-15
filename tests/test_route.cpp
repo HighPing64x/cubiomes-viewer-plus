@@ -132,6 +132,34 @@ int main(int argc, char **argv)
         }
     }
 
+    // --- 4b. Very short trip (exercises the per-cell sampling branch). ---
+    {
+        RouteConfig cfg;
+        cfg.start = Pos{0, 0};
+        cfg.end = Pos{500, 400};
+        RouteResult r;
+        computeRoute(&r, &g, cfg);
+        printResult("short 0,0 -> 500,400", r);
+        if (r.valid)
+        {
+            double direct = sqrt(500.0*500.0 + 400.0*400.0);
+            printf("  direct=%.1f path=%.1f\n", direct, r.distance);
+            if (r.distance < direct * 0.999)
+            {
+                printf("FAIL: short path shorter than direct line\n"); fails++;
+            }
+            if (r.path.front().p.x != 0 || r.path.front().p.z != 0
+                || r.path.back().p.x != 500 || r.path.back().p.z != 400)
+            {
+                printf("FAIL: short route endpoints not preserved\n"); fails++;
+            }
+        }
+        else
+        {
+            printf("FAIL: short route should always be possible\n"); fails++;
+        }
+    }
+
     // --- 5. Very long distance must either work or fail cleanly. ---
     {
         RouteConfig cfg;
@@ -163,6 +191,75 @@ int main(int argc, char **argv)
         {
             printf("  fastest: %.1f blocks / %.1fs\n", ra.distance, ra.traveltime);
             printf("  shortest: %.1f blocks / %.1fs\n", rb.distance, rb.traveltime);
+        }
+    }
+
+    // --- 7. The legs must partition the route exactly. ---
+    {
+        RouteConfig cfg;
+        cfg.start = Pos{0, 0};
+        cfg.end = Pos{4000, 2500};
+        RouteResult r;
+        computeRoute(&r, &g, cfg);
+
+        std::vector<RouteLeg> legs;
+        routeLegs(r, &legs);
+
+        double sum = 0;
+        int transitions = 0;
+        bool prevwater = legs.empty() ? false : legs[0].water;
+        for (size_t li = 0; li < legs.size(); li++)
+        {
+            const RouteLeg& leg = legs[li];
+            sum += leg.length;
+            if (leg.water != prevwater) transitions++;
+            prevwater = leg.water;
+
+            // A leg that covers at least one segment must move.
+            if (leg.length > 0 && leg.from.x == leg.to.x && leg.from.z == leg.to.z)
+            {
+                printf("FAIL: leg of length %.1f does not move\n", leg.length);
+                fails++;
+            }
+            // Consecutive legs must be contiguous.
+            if (li > 0)
+            {
+                const RouteLeg& p = legs[li-1];
+                if (p.to.x != leg.from.x || p.to.z != leg.from.z)
+                {
+                    printf("FAIL: leg %d does not continue the previous one\n", (int)li);
+                    fails++;
+                }
+            }
+        }
+
+        printf("[legs] %d legs, sum=%.1f, distance=%.1f, terrain changes=%d\n",
+            (int)legs.size(), sum, r.distance, transitions);
+
+        if (!r.valid)
+        {
+            printf("FAIL: expected a valid route for the leg test\n"); fails++;
+        }
+        // Every segment must be attributed to exactly one leg.
+        if (fabs(sum - r.distance) > 1e-6 * (1.0 + r.distance))
+        {
+            printf("FAIL: leg lengths sum to %.3f but distance is %.3f\n",
+                sum, r.distance);
+            fails++;
+        }
+        // Consecutive legs must alternate terrain.
+        if (transitions + 1 != (int)legs.size())
+        {
+            printf("FAIL: legs do not alternate terrain (%d transitions, %d legs)\n",
+                transitions, (int)legs.size());
+            fails++;
+        }
+        // The legs must start and end at the requested endpoints.
+        if (!legs.empty()
+            && (legs.front().from.x != cfg.start.x || legs.front().from.z != cfg.start.z
+                || legs.back().to.x != cfg.end.x || legs.back().to.z != cfg.end.z))
+        {
+            printf("FAIL: legs do not span the requested endpoints\n"); fails++;
         }
     }
 

@@ -104,6 +104,12 @@ bool WorldInfo::read(const QString& line)
         large = tmp;
         return true;
     }
+    if (sscanf(p, "#Bedrock:  %d", &tmp) == 1)
+    {
+        // Older session files have no edition line and stay Java worlds.
+        bedrock = (tmp >= BE_1_18 && tmp <= BE_NEWEST) ? tmp : BE_UNDEF;
+        return true;
+    }
     return false;
 }
 
@@ -111,6 +117,7 @@ void WorldInfo::write(QTextStream& stream)
 {
     stream << "#MC:       " << mc2str(mc) << "\n";
     stream << "#Large:    " << large << "\n";
+    stream << "#Bedrock:  " << bedrock << "\n";
     stream.flush();
 }
 

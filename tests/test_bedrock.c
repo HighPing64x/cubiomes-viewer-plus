@@ -86,6 +86,33 @@ static Pos refLargePos(int32_t salt, int regSize, int chunkRange,
     return p;
 }
 
+// Reference: per-chunk decoration RNG (used by mineshafts). The chunk
+// coordinates are converted to uint64_t, so negative values wrap before the
+// multiplication; this is the part that is easy to get wrong.
+static void refChunkRnd(struct RefMT* mt, uint64_t worldseed,
+                        int cx, int cz, int n) {
+    uint64_t r1, r2, mixed;
+    refSetSeed(mt, worldseed, 2);
+    r1 = refNext(mt) >> 1;
+    r2 = refNext(mt) >> 1;
+    mixed = (r1 * (uint64_t)(int64_t)cx)
+          ^ (r2 * (uint64_t)(int64_t)cz)
+          ^ worldseed;
+    refSetSeed(mt, mixed, n);
+}
+
+// Reference: mineshaft presence for a region (regionSize == 1 chunk).
+static int refMineshaft(struct RefMT* mt, uint64_t seed, int rx, int rz) {
+    float f;
+    int ax = rx < 0 ? -rx : rx;
+    int az = rz < 0 ? -rz : rz;
+    refChunkRnd(mt, seed, rx, rz, 3);
+    (void)(refNext(mt) >> 1);
+    f = (float)((double)refNext(mt) / 4294967296.0);
+    if (f >= 0.004f) return 0;
+    return refNextInt(mt, 80) < (ax > az ? ax : az);
+}
+
 int main(void) {
     int fails = 0, total = 0;
     uint64_t seeds[] = {0, 1, 42, 123456789, 0xDEADBEEF, 0xFFFFFFFFFFFFFFFFULL};
@@ -134,6 +161,49 @@ int main(void) {
             }
         }
     }
+
     printf("Bedrock placement: %d checks, %d failures\n", total, fails);
+    if (fails)
+        return 1;
+
+    // --- Mineshafts (per-chunk RNG) ---
+    // They are rare (0.4% per chunk), so a wide region scan is needed for the
+    // negative coordinate handling to be exercised at all.
+    {
+        int ms_checks = 0, ms_found = 0, ms_fails = 0;
+        for (int s = 0; s < ns; s++) {
+            for (int rx = -40; rx <= 40; rx++) {
+                for (int rz = -40; rz <= 40; rz++) {
+                    struct RefMT mmt;
+                    Pos got;
+                    int want_has = refMineshaft(&mmt, seeds[s], rx, rz);
+                    int got_has = getBedrockStructurePos(Mineshaft, MC_1_21_3,
+                        seeds[s], rx, rz, &got);
+                    ms_checks++;
+                    if (want_has) ms_found++;
+                    if ((got_has != 0) != (want_has != 0)) {
+                        if (ms_fails < 5)
+                            printf("FAIL mineshaft presence s=%llu r=(%d,%d) got=%d want=%d\n",
+                                (unsigned long long)seeds[s], rx, rz, got_has, want_has);
+                        ms_fails++;
+                    }
+                    else if (got_has && (got.x != rx * 16 || got.z != rz * 16)) {
+                        if (ms_fails < 5)
+                            printf("FAIL mineshaft pos s=%llu r=(%d,%d) got(%d,%d)\n",
+                                (unsigned long long)seeds[s], rx, rz, got.x, got.z);
+                        ms_fails++;
+                    }
+                }
+            }
+        }
+        printf("Mineshafts: %d checks, %d found, %d failures\n",
+            ms_checks, ms_found, ms_fails);
+        if (ms_found == 0) {
+            printf("FAIL: no mineshaft in the scan, the test is not meaningful\n");
+            ms_fails++;
+        }
+        fails += ms_fails;
+    }
+
     return fails ? 1 : 0;
 }

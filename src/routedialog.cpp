@@ -168,48 +168,23 @@ void RouteDialog::updateResult(const RouteResult& res)
 
     ui->labelMode->setText(tr("%1 land / %2 water").arg(res.nland).arg(res.nsea));
 
-    // Summarise the route as a list of legs: consecutive runs of the same
-    // terrain type are collapsed into a single entry with their extent.
+    // Summarise the route as a list of homogeneous legs.
     ui->textLog->appendPlainText(tr("Route from (%1, %2) to (%3, %4)")
         .arg(res.start.x).arg(res.start.z)
         .arg(res.end.x).arg(res.end.z));
     ui->textLog->appendPlainText(QString());
 
-    size_t i = 0;
-    const size_t n = res.path.size();
-    while (i < n)
+    std::vector<RouteLeg> legs;
+    routeLegs(res, &legs);
+    for (const RouteLeg& leg : legs)
     {
-        bool water = res.path[i].water;
-
-        // Extend the leg while the terrain type stays the same.
-        size_t j = i;
-        double leglen = 0;
-        while (j + 1 < n && res.path[j+1].water == water)
-        {
-            double dx = res.path[j+1].p.x - res.path[j].p.x;
-            double dz = res.path[j+1].p.z - res.path[j].p.z;
-            leglen += sqrt(dx*dx + dz*dz);
-            j++;
-        }
-
-        const Pos& a = res.path[i].p;
-        const Pos& b = res.path[j].p;
-        // The first and last waypoints already include their segment length.
-        if (j > i)
-        {
-            double dx = res.path[i+1].p.x - a.x;
-            double dz = res.path[i+1].p.z - a.z;
-            leglen += sqrt(dx*dx + dz*dz);
-        }
-
-        QString terr = water ? tr("by water") : tr("on land");
+        QString terr = leg.water ? tr("by water") : tr("on land");
         ui->textLog->appendPlainText(
             tr("%1  %2 blocks  (%3, %4) -> (%5, %6)")
             .arg(terr, -8)
-            .arg(QString::asprintf("%.0f", leglen), 8)
-            .arg(a.x).arg(a.z).arg(b.x).arg(b.z));
-
-        i = j + 1;
+            .arg(QString::asprintf("%.0f", leg.length), 8)
+            .arg(leg.from.x).arg(leg.from.z)
+            .arg(leg.to.x).arg(leg.to.z));
     }
 }
 

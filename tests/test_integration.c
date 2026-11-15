@@ -14,6 +14,7 @@ int getStructureConfig_override(int stype, int mc, StructureConfig *sconf)
 // Minimal stand-in for the Qt free parts of route.cpp: we only need the
 // terrain classification, which is what determines route validity.
 #include "../cubiomes/biomes.h"
+#include "../cubiomes/util.h"
 
 int main(void)
 {
@@ -116,3 +117,4 @@ int main(void)
 
     return (diff > 0 && same == 0 && mismatches == 0 && bad == 0) ? 0 : 1;
 }
+
